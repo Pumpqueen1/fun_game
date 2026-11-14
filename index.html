@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boston Post · Hasenheide</title>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
+<style>
+  :root { --cream: rgba(255, 250, 238, 0.93); --ink: #3b2f2a; --olive: #5b5a35; --gold: #f6c628; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe6f2; color: var(--ink);
+    font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif; user-select: none; }
+  canvas { display: block; }
+  .panel { background: var(--cream); border-radius: 16px; padding: 10px 14px; box-shadow: 0 4px 14px rgba(60, 40, 20, 0.18); }
+  #hud { display: none; }
+  #hud > * { position: fixed; }
+  #stats { top: 14px; left: 14px; width: 250px; }
+  #stats .top { display: flex; align-items: center; gap: 10px; }
+  #lvl { background: var(--olive); color: #fff; border-radius: 50%; width: 40px; height: 40px; display: grid; place-items: center; font-weight: 700; font-size: 18px; }
+  #xpbar { height: 10px; background: #e5dccb; border-radius: 6px; overflow: hidden; margin-top: 4px; }
+  #xpfill { height: 100%; background: var(--gold); width: 0; transition: width 0.3s; }
+  #xptext, #skills { font-size: 11px; opacity: 0.75; }
+  #stats .line { margin-top: 6px; font-size: 14px; display: flex; justify-content: space-between; }
+  #quest { top: 150px; left: 14px; width: 250px; display: none; font-size: 13px; border-left: 6px solid #a45ee5; }
+  #levelup { top: 228px; left: 14px; width: 250px; display: none; font-size: 13px; border-left: 6px solid var(--gold); }
+  #top { top: 14px; left: 50%; transform: translateX(-50%); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  #location { font-weight: 700; font-size: 16px; padding: 6px 16px; }
+  #compass { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 14px; }
+  #arrow { font-size: 20px; line-height: 1; display: inline-block; color: #a4452c; }
+  #status { font-weight: 700; color: #a4452c; text-shadow: 0 1px 0 #fff; min-height: 18px; }
+  #bag { top: 14px; right: 14px; width: 270px; font-size: 13px; }
+  #bag h4 { margin: 0 0 6px; display: flex; justify-content: space-between; }
+  #bag .row { display: flex; gap: 6px; padding: 2px 0; }
+  #bag .addr { flex: 1; } #bag .d { opacity: 0.6; } #bag .empty { opacity: 0.6; }
+  #minimap { bottom: 14px; right: 14px; border-radius: 14px; border: 4px solid var(--cream); box-shadow: 0 4px 14px rgba(60, 40, 20, 0.25); }
+  #help { bottom: 14px; left: 14px; font-size: 12px; line-height: 1.7; }
+  kbd { background: #fff; border: 1px solid #c9bfae; border-bottom-width: 3px; border-radius: 6px; padding: 0 6px; font: inherit; font-weight: 700; }
+  #prompt { bottom: 110px; left: 50%; transform: translateX(-50%); display: none; font-size: 16px; font-weight: 600; }
+  #banner { top: 26%; left: 50%; transform: translate(-50%, -50%) scale(0.6); font-size: 64px; font-weight: 800; color: #fff;
+    text-shadow: 0 4px 0 var(--ink), 0 0 24px rgba(0, 0, 0, 0.3); opacity: 0; transition: all 0.18s; pointer-events: none; white-space: nowrap; }
+  #banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-3deg); }
+  #banner.gold { color: var(--gold); } #banner.red { color: #ff6b57; }
+  #toasts { bottom: 160px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column-reverse; gap: 6px; align-items: center; pointer-events: none; }
+  .toast { background: var(--cream); border-radius: 14px; padding: 6px 14px; font-size: 14px; animation: pop 3.6s forwards; max-width: 560px; text-align: center; }
+  .toast.good { background: #e8f6d8; }
+  @keyframes pop { 0% { opacity: 0; transform: translateY(8px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+  #dialog { bottom: 120px; left: 50%; transform: translateX(-50%); width: min(560px, 90vw); display: none; padding: 16px 20px; }
+  #dialog h3 { margin: 0; } #dialog h5 { margin: 2px 0 8px; color: #a45ee5; font-size: 13px; }
+  #dialog p { margin: 0 0 12px; font-size: 16px; line-height: 1.45; }
+  #menu { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(60, 45, 30, 0.28); }
+  #menu .card { width: min(620px, 92vw); padding: 28px 32px; text-align: center; border-radius: 24px; }
+  #menu h1 { margin: 0; font-size: 44px; letter-spacing: -1px; }
+  #menu h2 { margin: 4px 0 16px; font-size: 16px; font-weight: 400; opacity: 0.8; }
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
+  button { font: inherit; font-weight: 700; border: 0; border-radius: 14px; padding: 14px 10px; cursor: pointer; background: var(--gold); color: var(--ink); }
+  button:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+  button:disabled { background: #e5dccb; color: #9a8f80; cursor: default; }
+  button small { display: block; font-weight: 400; font-size: 11px; margin-top: 3px; }
+  #menu .keys { font-size: 13px; line-height: 2; opacity: 0.9; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="stats" class="panel">
+    <div class="top">
+      <div id="lvl"><span id="level">1</span></div>
+      <div style="flex:1"><b>Postal Boston</b><div id="xpbar"><div id="xpfill"></div></div><div id="xptext"></div></div>
+    </div>
+    <div class="line"><span>Treats 🍖 <b id="treats">0</b></span><span id="bones"></span></div>
+    <div id="skills"></div>
+  </div>
+  <div id="quest" class="panel"></div>
+  <div id="levelup" class="panel"><b>Level up! Skill points: <span id="points">0</span></b><br>
+    <kbd>1</kbd> Speed &nbsp;<kbd>2</kbd> Bigger bag<br><kbd>3</kbd> Focus &nbsp;<kbd>4</kbd> Bone pouch</div>
+  <div id="top">
+    <div id="location" class="panel"></div>
+    <div id="compass" class="panel"><span id="arrow">▲</span><span id="target"></span></div>
+    <div id="status"></div>
+  </div>
+  <div id="bag" class="panel"><h4><span>Mail bag</span><span id="bagcap"></span></h4><div id="baglist"></div></div>
+  <canvas id="minimap" width="258" height="204"></canvas>
+  <div id="help" class="panel">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run &nbsp; <kbd>E</kbd> interact<br>
+    <kbd>Space</kbd> chew bone (zoomies!) &nbsp; <kbd>B</kbd> bark<br>
+    <kbd>C</kbd> selfie cam &nbsp; <kbd>R</kbd> back to Postamt
+  </div>
+  <div id="prompt" class="panel"></div>
+  <div id="banner"></div>
+  <div id="toasts"></div>
+  <div id="dialog" class="panel">
+    <h3 id="dlgname"></h3><h5 id="dlgtitle"></h5><p id="dlgtext"></p>
+    <kbd>E</kbd> Sure, woof! &nbsp;&nbsp; <kbd>Q</kbd> Not now
+  </div>
+</div>
+
+<div id="menu">
+  <div class="card panel">
+    <h1>🐾 Boston Post</h1>
+    <h2>A bow-tied Boston delivers mail, newspapers and lost socks around Hasenheide, Berlin.</h2>
+    <div class="modes">
+      <button id="play">Solo<small>Explore &amp; level up</small></button>
+      <button disabled>Co-op<small>Shared routes · coming soon</small></button>
+      <button disabled>Competitive<small>Delivery race · coming soon</small></button>
+    </div>
+    <div class="keys">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to run · <kbd>E</kbd> interact · <kbd>Space</kbd> chew a bone for chaotic zoomies · <kbd>B</kbd> bark<br>
+      Beware of squirrels. You <i>will</i> get distracted.
+    </div>
+  </div>
+</div>
+<script type="module" src="src/game.js"></script>
+</body>
+</html>
